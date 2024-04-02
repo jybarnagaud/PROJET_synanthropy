@@ -3,7 +3,7 @@ library(ade4)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-
+   
 setwd("C:/Users/jeany/OneDrive/Documents/PROJET_synanthropy/data")
 
 stoc <- read.csv("stoc_for_rql.csv")
