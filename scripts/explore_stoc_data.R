@@ -5,7 +5,7 @@ library(tidyr)
 library(ggplot2)
    
 setwd("C:/Users/jeany/OneDrive/Documents/PROJET_synanthropy/data")
-
+[ISITCOMMITTED]
 stoc <- read.csv("stoc_for_rql.csv")
 stoc.eps <-
   stoc[, c("birdlife_sci_name", "id_carre_num", "id_carre", "X", "Y")]
