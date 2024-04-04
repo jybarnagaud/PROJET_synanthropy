@@ -10,14 +10,14 @@ library(tidyverse)
 library(phylosignal)
 library(adephylo)
 library(readxl)
-
-setwd("C:/Users/jeany/OneDrive/Documents/PROJET_synanthropy/data")
+library(phylobase)
+library(openxlsx)
 
 #----------------------------------------------------------------#
 #### acoustic traits retrieved by M. Busana from Jean Roché   ####
 #----------------------------------------------------------------#
 
-acoutr <- read.csv("cleaned_maad_4_histo.csv")
+acoutr <- read.csv("data/cleaned_maad_4_histo.csv")
 rownames(acoutr) <- acoutr$birdlife_sci_name
 
 # gap filling : centroïd values for two NA on "duration songs" (species for which this trait is irrelevant / not computable)
@@ -74,6 +74,20 @@ acoutr2 <-
 
 pca.acou <- dudi.pca(acoutr2,scannf=F,nf=5)
 
+# check eigenvalues 
+screeplot(pca.acou)
+
+# test for number of axes
+pca.acou.testdim <- testdim(pca.acou)
+pca.acou.testdim$nb
+pca.acou.testdim$nb.cor
+
+# alternative test (for trial - similar result as testdim with Bonferroni procedure : 2 axes kept)
+library(PCAtest)
+pcatest <- PCAtest(acoutr2)
+
+# below we check four axes but only the two first will be kept for inference
+
 # correlation circle 
 s.corcircle(pca.acou$co,xax = 1, yax = 2)
 s.corcircle(pca.acou$co,xax = 1, yax = 3)
@@ -83,11 +97,11 @@ s.label(pca.acou$li,xax = 1, yax = 2)
 s.label(pca.acou$li,xax = 1, yax = 3)
 s.label(pca.acou$li,xax = 3, yax = 4)
 
-
-# 4 = durée totale du chant
-# 3 = rythme
-# 2 = composition spectrale (~bandwidth)
-# 1 = fréquence dominante
+# interpretation : 
+# 1 = dominant frequency
+# 2 = spectral composition (~bandwidth)
+# 3 = rythm
+# 4 = song duration
 
 #----------------------------#
 #### phylogenetic signal #####
@@ -95,7 +109,7 @@ s.label(pca.acou$li,xax = 3, yax = 4)
 
 # Thuiller's phylogenetic tree 
 
-wptree <- read.tree("phylogeny_birds_Thuiller2011.tre")
+wptree <- read.tree("data/phylogeny_birds_Thuiller2011.tre")
 sp.in.phylo <- wptree$tip.label
 sp.in.phylo <- sub("_", " ", sp.in.phylo)
 wptree2 <- wptree
@@ -105,7 +119,7 @@ wptree2$tip.label <- sp.in.phylo
 # NOTE : Lanius meridionalis is absent from Thuiller's phylogeny. It has been assigned
 # to the phylogenetic position of Lanius minor, which is absent from the STOC EPS.
 
-taxch <- read.csv2("taxonomic_update_thuiller_2011.csv")
+taxch <- read.csv2("data/taxonomic_update_thuiller_2011.csv")
 sp.in.phylo2 <- data.frame(species.thuiller = sp.in.phylo, index = 1)
 sp.in.phylo.match <- merge(sp.in.phylo2,taxch,by.x = "species.thuiller", by.y = "Thuiller_name",all=T)
 sp.in.phylo.match[is.na(sp.in.phylo.match$STOC_name),"STOC_name"] <- sp.in.phylo.match[is.na(sp.in.phylo.match$STOC_name),"species.thuiller"]  
@@ -119,6 +133,9 @@ wptree3$tip.label <- sp.in.phylo.match$STOC_name
 
 dif.tre <- setdiff(wptree3$tip.label,rownames(acoutr2))
 acou.tree <- drop.tip(wptree3,dif.tre)
+
+# check tree
+
 ggtree(acou.tree, layout='circular') + geom_tiplab(size=2, aes(angle=angle))
 
 #-----------------------------#
@@ -131,30 +148,7 @@ pc.coord <-
 
 # plot trait space axes on phylogeny
 
-plot.pcaxis <- function(axis = 1)
-{
-  
-pc.ax <- pc.coord[,paste("Axis",axis,sep="")]
-ax <- as.vector(pc.ax[[1]])
-names(ax) <-pc.coord$label
-fit.ax <- phytools::fastAnc(acou.tree, ax, vars=TRUE, CI=TRUE)
-
-td.ax <- data.frame(node = nodeid(acou.tree, names(ax)),
-                     trait = ax)
-nd.ax <- data.frame(node = names(fit.ax$ace), trait = fit.ax$ace)
-
-d.ax <- rbind(td.ax, nd.ax)
-d.ax$node <- as.numeric(d.ax$node)
-tree.ax <- full_join(acou.tree, d.ax, by = 'node')
-
-p1 <- ggtree(tree.ax, aes(color=trait), layout = 'circular', 
-             ladderize = FALSE, continuous = 'colour', size=1)+
-  scale_color_viridis_c()+
-  geom_tiplab(size=2, aes(angle=angle))+
-  labs(title = paste("Acoustic trait space - axis",axis,sep=" "))
-
-print(p1)
-}
+source("functions/plotpcaxis.R")
 
 plot.pcaxis(1)
 ggsave("acoustic_pc1.png")
@@ -196,18 +190,22 @@ signal.acou.raw
 # https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13515
 
 phy.dist <- proxTips(acou.tree)
-phy.pca <- ppca(phylo4.acou.raw)
+phy.pca <- ppca(phylo4.acou.raw, scannf = F, nfposi = 2, nfnega = 2)
 
 scatter(phy.pca)
 screeplot(phy.pca)
 plot(phy.pca)
+s.corcircle(phy.pca$c1)
+
+# axis 1 = ~ spectral properties
+# axis 2 = ~ frequency peaks
 
 #-----------------------------------------------#
 ##### non acoustic traits : hand-wing index #####
 #-----------------------------------------------#
 
 avonet <-
-  as.data.frame(read_excel("AVONET Supplementary dataset 1.xlsx", sheet = "AVONET1_BirdLife"))
+  as.data.frame(read_excel("data/AVONET Supplementary dataset 1.xlsx", sheet = "AVONET1_BirdLife"))
 
 hwi <- avonet[, c("Species1", "Hand-Wing.Index")]
 hwi.sub <- subset(hwi, Species1 %in% acou.tree$tip.label)
@@ -257,7 +255,7 @@ hwi.sub <- subset(hwi2, Species1 %in% acou.tree$tip.label)[,-3]
 #----------------------------------------------#
 
 afi <- as.data.frame(read_excel(
-  "xenocanto_acoucene.xlsx",
+  "data/xenocanto_acoucene.xlsx",
   sheet = "xeno canto europe au 25fev2020"
 ))
 
@@ -312,17 +310,17 @@ colnames(afi.sub) <- c("Species1","Affinity")
 #---------------------------------------------#
 
 hab <- as.data.frame(read_excel(
-  "SGI Godet et al.xlsx",
+  "data/SGI Godet et al.xlsx",
   sheet = "SXI-FINALv4"
 ))
 
 taxstoc <- as.data.frame(read_excel(
-  "referentiel stoceps.xlsx",
+  "data/referentiel stoceps.xlsx",
   sheet = "TEEspèces"
 ))
   
 taxupdate <- read.csv2(
-  "reftax_STOCEPS_thuiller.csv"
+  "data/reftax_STOCEPS_thuiller.csv"
 )
 
 taxstoc.update <- merge(taxstoc,taxupdate,by.x = "Espèce",by.y = "code_STOCEPS",all=T)
@@ -346,7 +344,7 @@ hab2 <- subset(habtax,NomS %in% acou.tree$tip.label)[,c("NomS","SGIo","RANGE_BIR
 #### non acoustic traits : UICN threat status ####
 #------------------------------------------------#
 
-iucn <- read.csv2("uicn_threat_status_2019.csv")
+iucn <- read.csv2("data/uicn_threat_status_2019.csv")
 iucn.hab <- 
 missp.iucn <- setdiff(acou.tree$tip.label, iucn$species) # same missing species as for hwi
 
@@ -360,6 +358,24 @@ iucn2[!is.na(iucn2$missp.hwi.thuiller), "species"] <-
   iucn2[!is.na(iucn2$missp.hwi.thuiller), "missp.hwi.thuiller"]
 
 iucn.sub <- subset(iucn2, species %in% acou.tree$tip.label)[,-3]
+
+#-----------------------------------------------#
+#### non acoustic traits : synanthropy index ####
+#-----------------------------------------------#
+
+# synanthropy index computed by Nicolas Casajus (march 2024) from CARTNAT
+
+syn <- read.csv("data/acoucene_ssi_results_121species.csv")
+
+# separate synanthropy indices from different CARTNAT layers
+
+syn.cartnat1 <- subset(syn,cartnat_layer == 1)
+syn.cartnat2 <- subset(syn,cartnat_layer == 2)
+syn.cartnat3 <- subset(syn,cartnat_layer == 3)
+syn.cartnat4 <- subset(syn,cartnat_layer == 4)
+
+syn.wide <- as.data.frame(pivot_wider(syn,names_from = cartnat_layer, values_from = ssi_mean))
+colnames(syn.wide) <- c("species", "syn1","syn2","syn3","syn4")
 
 #-------------------------------------------------------#
 #### match all non acoustic traits in a single table ####
@@ -386,4 +402,48 @@ habi.afi.hwi.iucn <-
         by.y  = "species",
         all = T)
 
-non.acou.traits 
+habi.afi.hwi.iucn.syn <-
+  merge(habi.afi.hwi.iucn,
+        syn.wide,
+        by.x = "NomS",
+        by.y  = "species",
+        all = T)
+
+
+#------------------------------------------#
+#### match all traits in a single table ####
+#------------------------------------------#
+
+nat <- habi.afi.hwi.iucn.syn
+at <- acoutr2
+pc <- as.data.frame(pc.coord[,1:3])
+colnames(pc) <- c("label","nonphy.acou.PC1","nonphy.acou.PC2")
+ppc <- phy.pca$li[,1:2]
+colnames(ppc) <- c("phy.acou.PC1","phy.acou.PC2")
+
+xt <- merge(nat,at,by.x = "NomS", by.y = 0, all = F)
+xpt <- merge(xt,pc,by.x = "NomS", by.y = "label", all = F)
+xppt <- merge(xpt,ppc,by.x = "NomS", by.y = 0, all = F)
+
+write.csv2(xppt,"outputs/full_trait_table.csv")
+
+# field descriptions for the output
+
+meta <- rbind(
+c("NomS", "scientific names"),
+c("SGIo" , "Godet's Species Generalism Index"),
+c("RANGE_BIRDLIFE" , "Birdlife's range size from Godet et al"),
+c("Affinity index" , "Blackburn's affinity index derived from Xeno Canto"),
+c("Hand-Wing.Index","from AVONET"),
+c("x2019_uicn_redlist" , "IUCN's redlist status (2019)"),
+c("syn1 to syn4" , "synanthropy index with CARTNAT 1st layer to 4th layer"),
+c("next columns", "acoustic traits (refer to dedicated trait table)"),
+c("end of table" , "non phylogenetic and phylogenetic principal component axes on acoustic traits")
+)
+colnames(meta) <- c("column","description")
+
+# output 
+
+l <- list("all_traits" = xppt, "fields" = meta)
+write.xlsx(l, file = "outputs/full_trait_table.xlsx")
+

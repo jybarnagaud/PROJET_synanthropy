@@ -3,10 +3,8 @@ library(ade4)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-   
-setwd("C:/Users/jeany/OneDrive/Documents/PROJET_synanthropy/data")
 
-stoc <- read.csv("stoc_for_rql.csv")
+stoc <- read.csv("data/stoc_for_rql.csv")
 stoc.eps <-
   stoc[, c("birdlife_sci_name", "id_carre_num", "id_carre", "X", "Y")]
 
