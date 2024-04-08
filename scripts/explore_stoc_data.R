@@ -3,6 +3,8 @@ library(ade4)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(patchwork)
+library(PerformanceAnalytics)
 
 stoc <- read.csv("data/stoc_for_rql.csv")
 stoc.eps <-
@@ -12,11 +14,11 @@ stoc.eps <-
 #### check nb plots / species ####
 #--------------------------------#
 
-car.sp <- unique(stoc.eps[,c("birdlife_sci_name","id_carre")])
+car.sp <- unique(stoc.eps[,c("birdlife_sci_name","id_carre_num")])
 n.car.sp <- tapply(car.sp$id_carre,car.sp$birdlife_sci_name,"length")
 sort(n.car.sp)
 
-tot.car <- length(unique(stoc.eps$id_carre))
+tot.car <- length(unique(stoc.eps$id_carre_num))
 prop.sp.car <- 100*n.car.sp / tot.car
 sort(prop.sp.car)
 
@@ -24,7 +26,7 @@ sort(prop.sp.car)
 #### plots ####
 #-------------#
 
-stoc.id <- unique(stoc.eps[, c("id_carre_num", "id_carre", "X", "Y")])
+stoc.id <- unique(stoc.eps[, c("id_carre_num", "X", "Y")])
 
 mapview(stoc.id,
         xcol = 'X',
@@ -35,36 +37,63 @@ mapview(stoc.id,
 #### landscape ####
 #-----------------#
 
-land.stoc <-
-  unique(stoc[, c(
-    "id_carre_num",
-    "id_carre",
-    "cartnat_layer2_human_influence",
-    "cartnat_layer3_ecological_flow",
-    "broad_leaf_type",
-    "coniferous_leaf_type",
-    "elevation",
-    "forest_high_pressures_sum",
-    "forest_low_pressures_sum",
-    "forest_pressures_mode",
-    "forest_pressures_mode",
-    "grassland",
-    "road_fragmentation_average",
-    "road_fragmentation_max",
-    "mesh_fragmentation_average",
-    "mesh_fragmentation_max",
-    "small_woody_feature",
-    "tree_cover_density",
-    "permanent_water",
-    "temporary_water",
-    "any_water"
-  )])
+land.keep <- c(
+  "id_carre_num",
+  "cartnat_layer2_human_influence",
+  "cartnat_layer3_ecological_flow",
+  "broad_leaf_type",
+  "coniferous_leaf_type",
+  "elevation",
+  "forest_high_pressures_sum",
+  "forest_low_pressures_sum",
+  "forest_pressures_mode",
+  "grassland",
+  "road_fragmentation_average",
+  "road_fragmentation_max",
+  "mesh_fragmentation_average",
+  "mesh_fragmentation_max",
+  "small_woody_feature",
+  "tree_cover_density",
+  "permanent_water",
+  "temporary_water",
+  "any_water"
+)
 
-pc.land.stoc <- dudi.pca(land.stoc[,-c(1,2)],scannf = F, nf = 3)
+land.keep2 <- c(
+  "id_carre_num",
+  "broad_leaf_type",
+  "coniferous_leaf_type",
+  "elevation",
+  "imperviousness",
+  "grassland",
+  "small_woody_feature",
+  "tree_cover_density",
+  "permanent_water",
+  "temporary_water",
+  "any_water"
+)
+
+land.stoc <-
+  unique(stoc[, land.keep2])
+
+# PCA on landscape features
+
+pc.land.stoc <- dudi.pca(land.stoc[,-1],scannf = F, nf = 2)
+
+# check eigenvalues 
+screeplot(pc.land.stoc)
+
+# test for number of axes
+  #pca.land.testdim <- testdim(pc.land.stoc)
+  #pca.land.testdim$nb
+  #pca.land.testdim$nb.cor
 
 s.corcircle(pc.land.stoc$co)
 
-pc1.land.stoc <- cbind(stoc.id[, c("X", "Y")], pc.land.stoc$li[, 2])
+# PC1 : wetlands to drylands
+# PC2 : urbanized / fragmented areas to forests
+
+pc1.land.stoc <- cbind(stoc.id[, c("X", "Y")], pc.land.stoc$li[, 1])
 colnames(pc1.land.stoc) = c("X", "Y", "PC1")
 mapview(
   pc1.land.stoc,
@@ -74,14 +103,24 @@ mapview(
   crs = 'epsg:27572'
 )
 
+pc2.land.stoc <- cbind(stoc.id[, c("X", "Y")], pc.land.stoc$li[, 2])
+colnames(pc2.land.stoc) = c("X", "Y", "PC2")
+mapview(
+  pc2.land.stoc,
+  xcol = "X",
+  ycol = "Y",
+  zcol = "PC2",
+  crs = 'epsg:27572'
+)
+
 #---------------#
 #### species ####
 #---------------#
 
-stoc.yr0 <- read.csv("stoc_yearly_abundances.csv")
+stoc.yr0 <- read.csv("data/stoc_yearly_abundances.csv")
 
 # remove passer italiae (no trait data)
-stoc.yr <- subset(stoc.yr,birdlife_sci_name!="Passer italiae")
+stoc.yr <- subset(stoc.yr0,birdlife_sci_name!="Passer italiae")
 
 # add missing absences
 rg.yr <- unique(stoc.yr$year)
@@ -118,44 +157,5 @@ ggplot(occurrence.ranking) +
   geom_bar(aes(x = reorder(species, -total.count.stoc), y = total.count.stoc), stat = "identity")
 
 occurrence.ranking <- occurrence.ranking[rev(order(occurrence.ranking[,2])),]
-occurrence.ranking[51:100,]
+occurrence.ranking[1:50,]
 
-# test species 
-
-common.species <- c(
-"Fringilla coelebs",
-"Passer domesticus",
-"Apus apus",
-"Sitta europaea",
-"Columba livia",
-"Anthus trivialis",
-"Oriolus oriolus",
-"Cuculus canorus",
-"Curruca communis",
-"Picus viridis"
-)
-
-uncommon.species <- c(
-"Lullula arborea",
-"Dryobates minor",
-"Columba oenas",
-"Phylloscopus sibilatrix",
-"Passer montanus",
-"Corvus frugilegus",
-"Emberiza schoeniclus",
-"Pyrrhula pyrrhula",
-"Riparia riparia",
-"Alcedo atthis")
-
-rare.species <- c(
-"Fringilla montifringilla",
-"Apus pallidus",
-"Petronia petronia",
-"Anthus campestris",
-"Cinclus cinclus",
-"Coracias garrulus",
-"Emberiza hortulana",
-"Hippolais icterina",
-"Monticola solitarius",
-"Luscinia svecica"
-)

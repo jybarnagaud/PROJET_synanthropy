@@ -150,3 +150,111 @@ s.corcircle(phy.pca$c1)
 
 # axis 1 = ~ spectral properties
 # axis 2 = ~ frequency peaks
+
+#---------------------------------------------------#
+#### check the synanthropy index on test species ####
+#---------------------------------------------------#
+
+# trait data (from prepare_trait_data.R)
+
+stoc.traits <- read.csv2("outputs/full_trait_table.csv",row.names = 1)
+
+# distribution of synanthropy
+
+chart.Correlation(stoc.traits[,c("syn1","syn2","syn3","syn4")])
+
+sort.syn <- stoc.traits[,c("NomS","syn1","syn2","syn3","syn4")]
+
+p.all.syn1 <- ggplot(sort.syn) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn1), stat = "identity")
+
+most.syn1 <- sort.syn[rev(order(sort.syn$syn1)),]
+most.syn2 <- sort.syn[rev(order(sort.syn$syn2)),]
+most.syn3 <- sort.syn[rev(order(sort.syn$syn3)),]
+most.syn4 <- sort.syn[rev(order(sort.syn$syn4)),]
+
+# test species sets
+
+common.species <- c(
+  "Fringilla coelebs",
+  "Passer domesticus",
+  "Apus apus",
+  "Sitta europaea",
+  "Columba livia",
+  "Anthus trivialis",
+  "Oriolus oriolus",
+  "Cuculus canorus",
+  "Curruca communis",
+  "Picus viridis"
+)
+stoc.traits.common <- subset(stoc.traits, NomS%in%common.species)
+
+uncommon.species <- c(
+  "Lullula arborea",
+  "Dryobates minor",
+  "Columba oenas",
+  "Phylloscopus sibilatrix",
+  "Passer montanus",
+  "Corvus frugilegus",
+  "Emberiza schoeniclus",
+  "Pyrrhula pyrrhula",
+  "Riparia riparia",
+  "Alcedo atthis")
+stoc.traits.uncommon <- subset(stoc.traits, NomS%in%uncommon.species)
+
+rare.species <- c(
+  "Fringilla montifringilla",
+  "Apus pallidus",
+  "Petronia petronia",
+  "Anthus campestris",
+  "Cinclus cinclus",
+  "Coracias garrulus",
+  "Emberiza hortulana",
+  "Hippolais icterina",
+  "Monticola solitarius",
+  "Luscinia svecica"
+)
+stoc.traits.rare <- subset(stoc.traits, NomS%in%rare.species)
+
+# look at the synanthropy index for common species
+
+p.common.syn1 <- ggplot(stoc.traits.common) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn1), stat = "identity")
+p.common.syn2 <- ggplot(stoc.traits.common) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn2), stat = "identity")
+p.common.syn3 <- ggplot(stoc.traits.common) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn3), stat = "identity")
+p.common.syn4 <- ggplot(stoc.traits.common) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn4), stat = "identity")
+
+(p.common.syn1 + p.common.syn2) / (p.common.syn3 + p.common.syn4)
+chart.Correlation(stoc.traits.common[,c("syn1","syn2","syn3","syn4")])
+
+# "" for uncommon species
+
+p.uncommon.syn1 <- ggplot(stoc.traits.uncommon) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn1), stat = "identity")
+p.uncommon.syn2 <- ggplot(stoc.traits.uncommon) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn2), stat = "identity")
+p.uncommon.syn3 <- ggplot(stoc.traits.uncommon) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn3), stat = "identity")
+p.uncommon.syn4 <- ggplot(stoc.traits.uncommon) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn4), stat = "identity")
+
+(p.uncommon.syn1 + p.uncommon.syn2) / (p.uncommon.syn3 + p.uncommon.syn4)
+chart.Correlation(stoc.traits.uncommon[,c("syn1","syn2","syn3","syn4")])
+
+# "" for rare species
+
+p.rare.syn1 <- ggplot(stoc.traits.rare) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn1), stat = "identity")
+p.rare.syn2 <- ggplot(stoc.traits.rare) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn2), stat = "identity")
+p.rare.syn3 <- ggplot(stoc.traits.rare) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn3), stat = "identity")
+p.rare.syn4 <- ggplot(stoc.traits.rare) +
+  geom_bar(aes(x = reorder(NomS, -syn1), y = syn4), stat = "identity")
+
+(p.rare.syn1 + p.rare.syn2) / (p.rare.syn3 + p.rare.syn4)
+chart.Correlation(stoc.traits.rare[,c("syn1","syn2","syn3","syn4")])
+

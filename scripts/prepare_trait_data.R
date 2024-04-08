@@ -61,9 +61,6 @@ traits.keep2 <- c(
 acoutr.ini <- read.csv("data/cleaned_maad_4_histo.csv") # initial trait data set, most variables there but not necessarily the best computation
 acoutr0 <- read.csv("data/maad_features_all.csv",sep=",") # full data set, includes double-checks for some species
 
-# duplicated species : keep only MB (Michela Busana)
-acoutr0 <- subset(acoutr,labeler == "MB")
-
 # duplicated species : average over traits of interest
 acoutr1 <-
   aggregate(acoutr0[, traits.keep2],
