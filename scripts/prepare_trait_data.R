@@ -17,64 +17,77 @@ library(openxlsx)
 #### acoustic traits retrieved by M. Busana from Jean Roché   ####
 #----------------------------------------------------------------#
 
-acoutr <- read.csv("data/cleaned_maad_4_histo.csv")
-rownames(acoutr) <- acoutr$birdlife_sci_name
+# traits of interest
+traits.keep1 <- c(
+  "duration_song",
+  "centroid_f",
+  "Ht_temporal_entropy",
+  "LFC_spectral_cover",
+  "MFC_spectral_cover",
+  "HFC_spectral_cover",
+  "Hf_spectral_entropy",
+  "number_of_freq_peaks",
+  "Hf_Havrda_spectral_entropy",
+  "Hf_Renyi_spectral_entropy",
+  "Hf_pairedShannon_spectral_entropy",
+  "Hf_gamma_spectral_entropy",
+  "Hf_GiniSimpson_spectral_entropy",
+  "peak_freq",#
+  "peak_freq_amp_by_mean_amp",
+  "peak_f_roi",
+  "centroid_f_roi",
+  "num_syllables_per_unit_time",
+  "syllable_duration_mean",
+  "syllable_duration_std",
+  "mean_gap_duration",
+  "gap_duration_std",
+  "sound_per_silence_ratio",
+  "sound_per_vocalization_ratio"
+)
+
+traits.keep2 <- c(
+  "duration_song",
+  "centroid_f",
+  "LFC_spectral_cover",
+  "MFC_spectral_cover",
+  "HFC_spectral_cover",
+  "Hf_spectral_entropy",
+  "number_of_freq_peaks",
+  "peak_freq",
+  "syllable_duration_mean",
+  "sound_per_vocalization_ratio"
+)
+
+acoutr.ini <- read.csv("data/cleaned_maad_4_histo.csv") # initial trait data set, most variables there but not necessarily the best computation
+acoutr0 <- read.csv("data/maad_features_all.csv",sep=",") # full data set, includes double-checks for some species
+
+# duplicated species : keep only MB (Michela Busana)
+acoutr0 <- subset(acoutr,labeler == "MB")
+
+# duplicated species : average over traits of interest
+acoutr1 <-
+  aggregate(acoutr0[, traits.keep2],
+            by = list(acoutr0$birdlife_sci_name),
+            FUN = "mean")
+
+# species as rownames (for ade4)
+rownames(acoutr1) <- acoutr1$Group.1
+acoutr <- acoutr1[,-1]
 
 # gap filling : centroïd values for two NA on "duration songs" (species for which this trait is irrelevant / not computable)
 acoutr[is.na(acoutr$duration_song), "duration_song"] <-
   mean(acoutr$duration_song, na.rm = T)
 
-# keep
-acoutr2 <-
-  acoutr[, c(
-    "duration_song",
-    "centroid_f",
-    "Ht_temporal_entropy",
-    "LFC_spectral_cover",
-    "MFC_spectral_cover",
-    "HFC_spectral_cover",
-    "Hf_spectral_entropy",
-    "number_of_freq_peaks",
-    "Hf_Havrda_spectral_entropy",
-    "Hf_Renyi_spectral_entropy",
-    "Hf_pairedShannon_spectral_entropy",
-    "Hf_gamma_spectral_entropy",
-    "Hf_GiniSimpson_spectral_entropy",
-    "peak_freq",#
-    "peak_freq_amp_by_mean_amp",
-    "peak_f_roi",
-    "centroid_f_roi",
-    "num_syllables_per_unit_time",
-    "syllable_duration_mean",
-    "syllable_duration_std",
-    "mean_gap_duration",
-    "gap_duration_std",
-    "sound_per_silence_ratio",
-    "sound_per_vocalization_ratio"
-  )]
-
-
-acoutr2 <-
-  acoutr[, c(
-    "duration_song",
-    "centroid_f",
-    "LFC_spectral_cover",
-    "MFC_spectral_cover",
-    "HFC_spectral_cover",
-    "Hf_spectral_entropy",
-    "number_of_freq_peaks",
-    "peak_freq",
-    "syllable_duration_mean",
-    "sound_per_vocalization_ratio"
-  )]
-
-write.csv2(acoutr2,"acoustic_traits_for_analysis.csv")
+# save trait data
+write.csv2(acoutr,"acoustic_traits_for_analysis.csv")
 
 #-------------------------------------------------------#
 #### Principal Component analysis on acoustic traits ####
 #-------------------------------------------------------#
 
-pca.acou <- dudi.pca(acoutr2,scannf=F,nf=5)
+pca.acou <- dudi.pca(acoutr,scannf=F,nf=5)
+
+screeplot(pca.acou)
 
 # we keep the two first PC axes - see explore_trait_data.R for choice material
 
@@ -112,7 +125,7 @@ wptree3$tip.label <- sp.in.phylo.match$STOC_name
 
 # prune tree
 
-dif.tre <- setdiff(wptree3$tip.label,rownames(acoutr2))
+dif.tre <- setdiff(wptree3$tip.label,rownames(acoutr))
 acou.tree <- drop.tip(wptree3,dif.tre)
 
 #-----------------------------#
@@ -133,7 +146,7 @@ phylo4.acou <- phylo4d(as(acou.tree,"phylo4"),pc.coord.ord)
 
 # phylogenetic signal on raw traits
 
-pc.coord.raw <- acoutr2
+pc.coord.raw <- acoutr
 pc.coord.raw <- pc.coord.raw[acou.tree$tip.label,]
 pc.coord.raw <- as.data.frame(pc.coord.raw)
 
@@ -271,7 +284,7 @@ taxupdate <- read.csv2(
 )
 
 taxstoc.update <- merge(taxstoc,taxupdate,by.x = "Espèce",by.y = "code_STOCEPS",all=T)
-missp.habtax <- setdiff(acou.tree$tip.label, hab2$NomS)
+
 
 habtax <-
   merge(
@@ -286,6 +299,8 @@ habtax[!is.na(habtax$species_Thuiller), "NomS"] <-
   habtax[!is.na(habtax$species_Thuiller), "species_Thuiller"]
 
 hab2 <- subset(habtax,NomS %in% acou.tree$tip.label)[,c("NomS","SGIo","RANGE_BIRDLIFE")]
+
+missp.habtax <- setdiff(acou.tree$tip.label, hab2$NomS)
 
 #------------------------------------------------#
 #### non acoustic traits : UICN threat status ####
@@ -362,7 +377,7 @@ habi.afi.hwi.iucn.syn <-
 #------------------------------------------#
 
 nat <- habi.afi.hwi.iucn.syn
-at <- acoutr2
+at <- acoutr
 pc <- as.data.frame(pc.coord[,1:3])
 colnames(pc) <- c("label","nonphy.acou.PC1","nonphy.acou.PC2")
 ppc <- phy.pca$li[,1:2]

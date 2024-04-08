@@ -6,7 +6,7 @@ library(ggplot2)
 
 stoc <- read.csv("data/stoc_for_rql.csv")
 stoc.eps <-
-  stoc[, c("birdlife_sci_name", "id_carre_num", "id_carre", "X", "Y")]
+  stoc[, c("birdlife_sci_name", "id_carre_num",  "X", "Y")]
 
 #--------------------------------#
 #### check nb plots / species ####
