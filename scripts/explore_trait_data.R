@@ -13,6 +13,10 @@ library(readxl)
 library(phylobase)
 library(openxlsx)
 library(PCAtest)
+library(PerformanceAnalytics)
+library(factoextra)
+library(adegraphics)
+library(funrar)
 
 #---------------------------------------#
 #### data sur les traits acoustiques ####
@@ -151,6 +155,24 @@ s.corcircle(phy.pca$c1)
 # axis 1 = ~ spectral properties
 # axis 2 = ~ frequency peaks
 
+#-------------------------------------------------#
+#### clustering analyses on the acoustic space ####
+#-------------------------------------------------#
+
+# optimum number of clusters
+
+kmeans.opti <-fviz_nbclust(pca.acou$li,kmeans)	
+hclus.opti <-fviz_nbclust(pca.acou$li,hcut)	
+pam.opti <-fviz_nbclust(pca.acou$li,cluster::pam)	
+
+# several clustering methods
+clus.opti.kmeans <- eclust(pca.acou$li, FUNcluster = "kmeans")
+
+clus.opti.pam <- eclust(pca.acou$li, FUNcluster = "pam")
+
+clus.opti.hclus <- eclust(pca.acou$li, FUNcluster = "hclust")
+fviz_dend(clus.opti.hclus) 
+
 #---------------------------------------------------#
 #### check the synanthropy index on test species ####
 #---------------------------------------------------#
@@ -257,4 +279,183 @@ p.rare.syn4 <- ggplot(stoc.traits.rare) +
 
 (p.rare.syn1 + p.rare.syn2) / (p.rare.syn3 + p.rare.syn4)
 chart.Correlation(stoc.traits.rare[,c("syn1","syn2","syn3","syn4")])
+
+#----------------------------------------------------------#
+#### covariation between acoustic and ecological traits ####
+#----------------------------------------------------------#
+
+pca.acou <- dudi.pca(acoutr2,scannf=F,nf=5)
+
+# ecological traits to keep 
+
+stoc.traits.exp <- stoc.traits
+stoc.traits.exp <- stoc.traits.exp[rownames(acoutr2),]
+stoc.traits.exp$LMass  <- log(stoc.traits.exp$Mass)
+rownames(stoc.traits.exp) <- stoc.traits.exp$NomS
+
+ecotr <-
+  stoc.traits.exp[, c(
+    "SGIo",
+    "RANGE_BIRDLIFE",
+    "Hand.Wing.Index",
+    "LMass",
+    "Migration",
+    "Centroid.Latitude",
+    "Habitat",
+    "Trophic.Niche",
+    "syn1"
+  )]
+
+# set missing trait values to the column mean and change character variables to factors
+
+ecotr.nona <- ecotr %>%
+  mutate(across(everything(), ~ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  mutate_if(is.character, as.factor)
+
+ecotr.nona$Migration <- factor(ecotr.nona$Migration)
+
+# perform a Hill & Smith analysis
+
+hs.traits <- dudi.hillsmith(ecotr.nona, scannf = F, nf = 2)
+
+# check eigenvalues 
+screeplot(hs.traits)
+
+# results
+
+s.corcircle(hs.traits$co)
+s.label(hs.traits$li,clabel = 0.5)
+
+# check IUCN status (no further analysis, only 6 "non LC")
+s.class(hs.traits$li, fac = factor(stoc.traits.exp$X2019_uicn_redlist),col = c("goldenrod","steelblue","purple"))
+
+# PCA on quantitative traits
+
+ecotr.nona.qt <-
+  ecotr.nona[, c(
+    "SGIo",
+    "RANGE_BIRDLIFE",
+    "Hand.Wing.Index",
+    "LMass",
+    "Centroid.Latitude",
+    "syn1"
+  )]
+
+pc.traits.qt <- dudi.pca(ecotr.nona.qt, scannf = F, nf = 2)
+screeplot(pc.traits.qt)
+fviz_pca_var(pc.traits.qt)
+
+# coinertia analysis (only with quantitative traits to allow robustness check)
+
+coi.eco.acou <-
+  coinertia(pca.acou, pc.traits.qt, scannf = F, nf = 2)
+
+# check robustness
+
+ran.coi.eco.acou <- ade4::randtest(coi.eco.acou)
+plot(ran.coi.eco.acou)
+ran.coi.eco.acou
+
+# explore coinertia
+
+plot(coi.eco.acou)
+
+s.label(coi.eco.acou$lX,clabel = 0.5)
+g1 <- s.arrow(coi.eco.acou$li,plabels = list(boxes = list(draw = F)), xlim = c(-1.5,1.5), ylim = c(-1.5,1.5), pgrid = list(draw = F))
+g2 <- s.label(coi.eco.acou$co,plabels = list( col = "steelblue", boxes = list(draw = F,col = "steelblue", alpha = 0.5)))
+
+cbindADEg(g1, g2, plot = T)
+
+# coinertia with qualitative traits
+
+coi.eco.acou.all <-
+  coinertia(pca.acou, hs.traits, scannf = F, nf = 2)
+
+g3 <- s.arrow(coi.eco.acou.all$li,plabels = list(boxes = list(draw = F)), xlim = c(-1.5,1.5), ylim = c(-1.5,1.5), pgrid = list(draw = F))
+g4 <- s.label(coi.eco.acou.all$co,plabels = list( col = "steelblue", boxes = list(draw = F,col = "steelblue", alpha = 0.5)))
+cbindADEg(g3, g4, plot = T)
+
+
+#-------------------------------------------#
+#### Investigation of the Affinity index ####
+#-------------------------------------------#
+
+# distribution of affinity in the acoustic trait space
+
+s.value(pca.acou$li,log(eco.traits.nona$Affinity),method = "color", col = viridis_pal(alpha = 0.5)(6))
+
+# distribution of affinity in the coinertia space
+
+s.value(coi.eco.acou.all$lX,log(eco.traits.nona$Affinity),method = "color", col = viridis_pal(alpha = 0.5)(6))
+
+# distribution of synanthropy in the coinertia space
+
+s.value(coi.eco.acou.all$lX,eco.traits.nona$syn1,method = "color", col = viridis_pal(alpha = 0.5)(7))
+
+#---------------------------#
+##### functional rarity #####
+#---------------------------#
+
+# computing an euclidean distance matrix for acoustic traits
+
+acou.dist <- as.matrix(dist(acoutr2))
+
+# false sites x species matrix for funrar
+
+stsp.sim <- matrix(1,3,nrow(acoutr2))
+colnames(stsp.sim) <- rownames(acoutr2)
+
+# functional rarity indices (non spatial)
+
+acou.rar <- funrar(stsp.sim, acou.dist, rel_abund = F)
+
+df.acou.rar <- data.frame(Ui = as.vector(acou.rar$Ui[,2]),
+                          Di = acou.rar$Di[1,])
+
+# Hill & Smith including functional rarity 
+
+ecotr.nona.acourar <- merge(ecotr.nona,df.acou.rar,by = 0)
+colnames(ecotr.nona.acourar)[1] <- "species"
+rownames(ecotr.nona.acourar) <- ecotr.nona.acourar[,1]
+eco.acourar <- ecotr.nona.acourar[,-1]
+hs.eco.acou <- dudi.hillsmith(eco.acourar, scannf = F, nf = 2)
+
+ade4::s.corcircle(hs.eco.acou$co,clabel = 0.7)
+
+# explore Ui and Di
+
+p.acou.ui <- ggplot(ecotr.nona.acourar) +
+  geom_bar(aes(x = reorder(species, -Ui), y = Ui), stat = "identity")
+p.acou.ui
+
+order.ui <- ecotr.nona.acourar[rev(order(ecotr.nona.acourar$Ui)),]
+order.ui[1:10,] # 10 most acoustically unique
+order.ui[c((nrow(order.ui)-10):nrow(order.ui)),] # 10 least acoustically unique
+
+# add Affinity
+
+ecoac.biv <- merge(order.ui,stoc.traits[,c("Affinity","X2019_uicn_redlist","syn2","syn3","syn4")], by = 0)
+
+# Affinity vs Di - Ui
+
+p1 <- ggplot(ecoac.biv)+
+  aes(x = Affinity, y = Ui)+
+  geom_point()
+
+p2 <- ggplot(ecoac.biv)+
+  aes(x = Affinity, y = Di)+
+  geom_point()
+
+
+# syn1 vs Di - Ui
+
+p3 <- ggplot(ecoac.biv)+
+  aes(x = syn1, y = Ui)+
+  geom_point()
+
+p4 <- ggplot(ecoac.biv)+
+  aes(x = syn1, y = Di)+
+  geom_point()
+
+(p1 + p2)/ (p3 + p4)
 
