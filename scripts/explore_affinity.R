@@ -423,3 +423,148 @@ summary(m.af.l)
 summary(m.af.p.lam)
 summary(m.af.p.kap)
 summary(m.af.p.BM)
+
+#-------------------------------------------------------------------------------------------#
+#### relationship between Affinity and acoustic traits, accounting for ecological traits ####
+#-------------------------------------------------------------------------------------------#
+
+# note : in the script explore_trait_data.R there's a coinertia showing little interpretable co-variation 
+# between ecological and acoustic traits. 
+
+acou.eco.traits <- merge(acoutr,eco.traits,by.y = "NomS", by.x = 0, all = F)
+rownames(acou.eco.traits) <- acou.eco.traits$Row.names
+colnames(acou.eco.traits)[1] <- "NomS"
+
+acou.eco.traits <- acou.eco.traits[afi.tree$tip.label,]
+
+# check correlations among predictors of affinity
+
+pred.afi <- acou.eco.traits[, c(
+  "duration_song",
+  "centroid_f",
+  "LFC_spectral_cover",
+  "MFC_spectral_cover",
+  "HFC_spectral_cover",
+  "Hf_spectral_entropy",
+  "number_of_freq_peaks",
+  "peak_freq",
+  "syllable_duration_mean",
+  "sound_per_vocalization_ratio",
+  "SGIo",
+  "RANGE_BIRDLIFE",
+  "Migration",
+  "LMass",
+  "Centroid.Latitude",
+  "syn1"
+)]
+
+#chart.Correlation(pred.afi)
+
+# gap filling with mean value
+
+pred.nona <- pred.afi %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+pc.pred <- dudi.pca(pred.nona,scannf = F, nf = 3)
+
+# test for number of axes
+
+pc.pred.testdim <- testdim(pc.pred)
+pc.pred.testdim$nb
+pc.pred.testdim$nb.cor
+pc.pred.test <- PCAtest(pred.nona)
+
+# keep 3 axes
+
+s.corcircle(pc.pred$co,xax=1,yax=2,plabels = list(cex = 0.7,boxes = list(draw=F)))
+s.corcircle(pc.pred$co,xax=1,yax=3,plabels = list(cex = 0.7,boxes = list(draw=F)))
+s.corcircle(pc.pred$co,xax=2,yax=3,plabels = list(cex = 0.7,boxes = list(draw=F)))
+
+# separate PCA for acoustic and ecological traits (the latter is done in a previous section of this script)
+
+traits.acou <- pred.nona[, c(
+  "duration_song",
+  "centroid_f",
+  "LFC_spectral_cover",
+  "MFC_spectral_cover",
+  "HFC_spectral_cover",
+  "Hf_spectral_entropy",
+  "number_of_freq_peaks",
+  "peak_freq",
+  "syllable_duration_mean",
+  "sound_per_vocalization_ratio"
+)]
+
+pc.acou <- dudi.pca(traits.acou, nf = 2, scannf = F)
+pc.acou.testdim <- testdim(pc.acou)
+pc.acou.testdim$nb
+pc.acou.testdim$nb.cor
+
+s.label(pc.acou$li)
+s.corcircle(pc.acou$co)
+
+# match PC data and affinity
+
+all.pc.traits <- merge(pc.acou$li, pc.eco$li, by = 0)
+colnames(all.pc.traits) = c("NomS", "PC1.acou", "PC2.acou", "PC1.eco", "PC2.eco")
+all.pc <-
+  merge(all.pc.traits, acou.eco.traits[, c("NomS", "Affinity")], by =   "NomS")
+rownames(all.pc) <- all.pc$NomS
+all.pc <- all.pc[afi.tree$tip.label, ]
+all.pc$LAffinity <- log(all.pc$Affinity)
+
+# explore 
+
+p1 <- ggplot(all.pc)+
+  aes(x = PC1.acou, y = LAffinity)+
+  geom_point(alpha = 0.5)
+
+p2 <- ggplot(all.pc)+
+  aes(x = PC2.acou, y = LAffinity)+
+  geom_point(alpha = 0.5)
+
+p3 <- ggplot(all.pc)+
+  aes(x = PC1.eco, y = LAffinity)+
+  geom_point(alpha = 0.5)
+
+p4 <- ggplot(all.pc)+
+  aes(x = PC2.eco, y = LAffinity)+
+  geom_point(alpha = 0.5)
+
+(p1 + p2) / (p3 + p4)
+
+# colinearity
+
+chart.Correlation(all.pc[,c("PC1.acou","PC2.acou","PC1.eco","PC2.eco")])
+
+# model 
+
+all.pc2 <- subset(all.pc,!is.na(Affinity))
+mod.acou.eco <- lm(LAffinity ~ PC1.acou + PC2.acou + PC1.eco + PC2.eco, data = all.pc2)
+
+par(mfrow=c(2,2))
+plot(mod.acou.eco)
+
+summary(mod.acou.eco)
+
+p1 <- ggeffect(mod.acou.eco, terms = "PC1.acou") %>%
+  plot(alpha = 0.3,residuals = T)
+
+p2 <- ggeffect(mod.acou.eco, terms = "PC2.acou") %>%
+  plot(alpha = 0.3,residuals = T)
+
+p3 <- ggeffect(mod.acou.eco, terms = "PC1.eco") %>%
+  plot(alpha = 0.3,residuals = T)
+
+p4 <- ggeffect(mod.acou.eco, terms = "PC2.eco") %>%
+  plot(alpha = 0.3,residuals = T)
+
+(p1 + p2) / (p3 + p4)
+
+# zoom in PC1.acou
+
+p1 <- ggeffect(mod.acou.eco, terms = "PC1.acou") %>%
+  plot(alpha = 0.3,residuals = T)
+
+
+
