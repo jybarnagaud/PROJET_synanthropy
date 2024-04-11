@@ -24,6 +24,8 @@ library(funrar)
 
 acoutr2 <- read.csv2("acoustic_traits_for_analysis.csv",row.names = 1)
 
+a <- 2+2
+
 #-------------------------------------------------------#
 #### Principal Component analysis on acoustic traits ####
 #-------------------------------------------------------#
