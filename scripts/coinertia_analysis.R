@@ -133,3 +133,5 @@ geo.traits.sub <- geo.traits.filled[,!names(geo.traits.filled)%in%c("syn1","syn2
 trait.filled <- merge(fun.traits.filled,geo.traits.sub,by=0)
 
 ## single - table ordinations --------------------------------------------------
+
+
