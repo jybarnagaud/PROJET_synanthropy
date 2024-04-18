@@ -221,7 +221,45 @@ funtr2[!is.na(funtr2$missp.avonet.thuiller), "Species1"] <-
   funtr2[!is.na(funtr2$missp.avonet.thuiller), "missp.avonet.thuiller"]
 
 funtr.sub0 <- subset(funtr2, Species1 %in% acou.tree$tip.label)
-funtr.sub <- funtr.sub0[,!names(funtr.sub0) == "missp.avonet.thuiller"]
+funtr.sub1 <- funtr.sub0[,!names(funtr.sub0) == "missp.avonet.thuiller"]
+
+#------------------------------------------------------------------------------#
+##### non acoustic traits : repro and social from C. Sekercioglu's database ####
+#------------------------------------------------------------------------------#
+
+# !! use and distribution of these data are subject to Cagan Sekercioglu's agreement (cagan1@gmail.com)
+# !! non homogeneous data and/or decimal separation in this file
+
+breed0 <- read.csv2("data/2021 Barnagaud Birdbase TRAVAIL 2022.csv",sep=";",dec=".")
+breed <- breed0[,c("Gill.et.al.2020..IOC.World.Bird.List..v10.2.","Clutch.Ave","Social","Known.Longevity")]
+colnames(breed) <- c("Species1","avg.clutch","social","longevity")
+
+# match taxonomy
+
+breed["Dendrocoptes medius","Species1"] <- "Leiopicus medius"
+breed["Coloeus monedula","Species1"] <- "Corvus monedula"
+
+# subset species
+
+breed1 <- subset(breed,Species1%in%funtr.sub1$Species1)
+
+# rework trait "social" : average of all possible classes
+
+soc.breed <- breed1$social
+soc.breed.split <- strsplit(soc.breed,",")
+
+soc.breed.av <- unlist(lapply(soc.breed.split,FUN=function(x){mean(as.numeric(x))}))
+
+breed2 <- breed1
+breed2$social <- soc.breed.av
+
+# change longevity to numeric
+
+breed2$longevity <- as.numeric(breed2$longevity)
+
+# all functional traits
+
+funtr.sub <- merge(funtr.sub1,breed2,by="Species1")
 
 #----------------------------------------------#
 ##### non acoustic traits : affinity index #####
