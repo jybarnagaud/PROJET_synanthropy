@@ -1,3 +1,11 @@
+#-------------------------------------------------------------#
+#### Compile and prepare acoustic and non-acoustic traits #####
+    # Jean-Yves Barnagaud (jean-yves.barnagaud@ephe.psl.eu)
+                  # CESAB/ACOUCENE project
+        # subproject on acoustic vs non acoustic traits
+                        # april 2024
+#-------------------------------------------------------------#
+
 library(ade4)
 library(ggplot2)
 library(funrar)
@@ -32,7 +40,7 @@ traits.keep1 <- c(
   "Hf_pairedShannon_spectral_entropy",
   "Hf_gamma_spectral_entropy",
   "Hf_GiniSimpson_spectral_entropy",
-  "peak_freq",#
+  "peak_freq",
   "peak_freq_amp_by_mean_amp",
   "peak_f_roi",
   "centroid_f_roi",
@@ -45,6 +53,9 @@ traits.keep1 <- c(
   "sound_per_vocalization_ratio"
 )
 
+# the idea is to split traits into four types
+# and keep as many traits in each category
+
 traits.keep2 <- c(
   "duration_song",
   "centroid_f",
@@ -53,7 +64,6 @@ traits.keep2 <- c(
   "HFC_spectral_cover",
   "Hf_spectral_entropy",
   "number_of_freq_peaks",
-  "peak_freq",
   "syllable_duration_mean",
   "sound_per_vocalization_ratio"
 )
@@ -158,19 +168,22 @@ phy.pca <- ppca(phylo4.acou.raw, scannf = F, nfposi = 2, nfnega = 2)
 # axis 1 = ~ spectral properties
 # axis 2 = ~ frequency peaks
 
-#----------------------------------------------------------------------------#
-##### non acoustic traits : hand-wing index and other traits from AVONET #####
-#----------------------------------------------------------------------------#
+#---------------------------------------------------------------#
+##### non acoustic traits : "functional traits" from AVONET #####
+#---------------------------------------------------------------#
 
+# note : also includes range size and latitudinal centroid (geographic traits)
 avonet <-
   as.data.frame(read_excel("data/AVONET Supplementary dataset 1.xlsx", sheet = "AVONET1_BirdLife",na="NA"))
 
-hwi <- avonet[, c("Species1", "Hand-Wing.Index", "Mass","Migration","Centroid.Latitude", "Habitat","Trophic.Niche")]
-hwi.sub <- subset(hwi, Species1 %in% acou.tree$tip.label)
+funtr <- avonet[, c("Species1", "Hand-Wing.Index","Beak.Depth", "Mass","Migration","Habitat","Trophic.Niche","Primary.Lifestyle","Centroid.Latitude", "Range.Size")]
+funtr.sub <- subset(funtr, Species1 %in% acou.tree$tip.label)
 
-missp.hwi <- setdiff(acou.tree$tip.label, hwi$Species1)
+# taxonomic homogenization
 
-missp.hwi.thuiller <-
+missp.avonet <- setdiff(acou.tree$tip.label, funtr$Species1)
+
+missp.avonet.thuiller <-
   c(
     "Curruca conspicillata",
     "Curruca undata",
@@ -182,7 +195,7 @@ missp.hwi.thuiller <-
     "Luscinia svecica"
   )
 
-missp.hwi.avonet <-
+missp.avonet.avonet <-
   c(
     "Sylvia conspicillata",
     "Sylvia undata",
@@ -194,19 +207,22 @@ missp.hwi.avonet <-
     "Cyanecula svecica"
   )
 
-tax.hwi <- data.frame(missp.hwi.thuiller, missp.hwi.avonet)
+tax.funtr <- data.frame(missp.avonet.thuiller, missp.avonet.avonet)
 
-hwi2 <-
-  merge(hwi,
-        tax.hwi,
+# functional traits
+
+funtr2 <-
+  merge(funtr,
+        tax.funtr,
         by.x = "Species1",
-        by.y = "missp.hwi.avonet",
+        by.y = "missp.avonet.avonet",
         all = T)
-hwi2[!is.na(hwi2$missp.hwi.thuiller), "Species1"] <-
-  hwi2[!is.na(hwi2$missp.hwi.thuiller), "missp.hwi.thuiller"]
+funtr2[!is.na(funtr2$missp.avonet.thuiller), "Species1"] <-
+  funtr2[!is.na(funtr2$missp.avonet.thuiller), "missp.avonet.thuiller"]
 
-hwi.sub <- subset(hwi2, Species1 %in% acou.tree$tip.label)[,!names(hwi.sub) %in% 
-                                                             c("missp.hwi.thuiller")]
+funtr.sub0 <- subset(funtr2, Species1 %in% acou.tree$tip.label)
+funtr.sub <- funtr.sub0[,!names(funtr.sub0) == "missp.avonet.thuiller"]
+
 #----------------------------------------------#
 ##### non acoustic traits : affinity index #####
 #----------------------------------------------#
@@ -305,16 +321,16 @@ missp.habtax <- setdiff(acou.tree$tip.label, hab2$NomS)
 
 iucn <- read.csv2("data/uicn_threat_status_2019.csv")
 iucn.hab <- 
-missp.iucn <- setdiff(acou.tree$tip.label, iucn$species) # same missing species as for hwi
+missp.iucn <- setdiff(acou.tree$tip.label, iucn$species) # same missing species as for functional traits
 
 iucn2 <-
   merge(iucn,
-        tax.hwi,
+        tax.funtr,
         by.x = "species",
-        by.y = "missp.hwi.avonet",
+        by.y = "missp.avonet.avonet",
         all = T)
-iucn2[!is.na(iucn2$missp.hwi.thuiller), "species"] <-
-  iucn2[!is.na(iucn2$missp.hwi.thuiller), "missp.hwi.thuiller"]
+iucn2[!is.na(iucn2$missp.avonet.thuiller), "species"] <-
+  iucn2[!is.na(iucn2$missp.avonet.thuiller), "missp.avonet.thuiller"]
 
 iucn.sub <- subset(iucn2, species %in% acou.tree$tip.label)[,-3]
 
@@ -347,22 +363,22 @@ habi.afi <-
         by.y = "Species1",
         all = T)
 
-habi.afi.hwi <-
+habi.afi.funtr <-
   merge(habi.afi,
-        hwi.sub,
+        funtr.sub,
         by.x = "NomS",
         by.y  = "Species1",
         all = T)
 
-habi.afi.hwi.iucn <-
-  merge(habi.afi.hwi,
+habi.afi.funtr.iucn <-
+  merge(habi.afi.funtr,
         iucn.sub,
         by.x = "NomS",
         by.y  = "species",
         all = T)
 
-habi.afi.hwi.iucn.syn <-
-  merge(habi.afi.hwi.iucn,
+habi.afi.funtr.iucn.syn <-
+  merge(habi.afi.funtr.iucn,
         syn.wide,
         by.x = "NomS",
         by.y  = "species",
@@ -373,7 +389,7 @@ habi.afi.hwi.iucn.syn <-
 #### match all traits in a single table ####
 #------------------------------------------#
 
-nat <- habi.afi.hwi.iucn.syn
+nat <- habi.afi.funtr.iucn.syn
 at <- acoutr
 pc <- as.data.frame(pc.coord[,1:3])
 colnames(pc) <- c("label","nonphy.acou.PC1","nonphy.acou.PC2")
