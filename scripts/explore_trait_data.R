@@ -1,3 +1,11 @@
+#---------------------------------------------------------------------------#
+#### explore acoustic and non-acoustic traits from prepare_trait_data.R #####
+        # Jean-Yves Barnagaud (jean-yves.barnagaud@ephe.psl.eu)
+                      # CESAB/ACOUCENE project
+            # subproject on acoustic vs non acoustic traits
+                          # april 2024
+#---------------------------------------------------------------------------#
+
 library(ade4)
 library(ggplot2)
 library(funrar)
@@ -179,7 +187,7 @@ fviz_dend(clus.opti.hclus)
 
 # trait data (from prepare_trait_data.R)
 
-stoc.traits <- read.csv2("outputs/full_trait_table.csv",row.names = 1)
+stoc.traits <- as.data.frame(read_excel("outputs/full_trait_table.xlsx", sheet = "all_traits", na = "NA"))
 
 # distribution of synanthropy
 
