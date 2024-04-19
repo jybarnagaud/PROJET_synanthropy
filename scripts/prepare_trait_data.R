@@ -70,7 +70,7 @@ acoutr <- acoutr %>%
   mutate(across(where(is.numeric), ~ replace_na(., mean(., na.rm = TRUE))))
 
 # save trait data
-write.csv2(acoutr,"acoustic_traits_for_analysis.csv")
+# write.csv2(acoutr,"acoustic_traits_for_analysis.csv")
 
 #-------------------------------------------------------#
 #### Principal Component analysis on acoustic traits ####
@@ -81,12 +81,6 @@ pca.acou <- dudi.pca(acoutr,scannf=F,nf=5)
 screeplot(pca.acou)
 
 # we keep the two first PC axes - see explore_trait_data.R for choice material
-
-# interpretation : 
-# 1 = dominant frequency
-# 2 = spectral composition (~bandwidth)
-# 3 = rythm
-# 4 = song duration
 
 #----------------------------#
 #### phylogenetic signal #####
@@ -149,8 +143,6 @@ phylo4.acou.raw <- phylo4d(as(acou.tree,"phylo4"),pc.coord.raw)
 phy.dist <- proxTips(acou.tree)
 phy.pca <- ppca(phylo4.acou.raw, scannf = F, nfposi = 2, nfnega = 2)
 
-# axis 1 = ~ spectral properties
-# axis 2 = ~ frequency peaks
 
 #---------------------------------------------------------------#
 ##### non acoustic traits : "functional traits" from AVONET #####
@@ -444,6 +436,11 @@ colnames(meta) <- c("column","description")
 
 # output 
 
-l <- list("all_traits" = xppt, "fields" = meta)
+
+trait.acronyms <- data.frame(original.acronyms = traits.keep, short_acronyms = c("Ht","Hf","nfp","nfp.cqv","pf",
+                           "pf.cqv","actfract","sp.bdw","ugof.iso","npvi.ioi","npvi.ioi.cqv",
+                           "n.syll","dur","syll.dur.med","ioi.dur.med","syll.dur.med.cqv"))
+
+l <- list("all_traits" = xppt, "fields" = meta, "acronyms" = trait.acronyms)
 write.xlsx(l, file = "outputs/full_trait_table.xlsx")
 
