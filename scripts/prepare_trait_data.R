@@ -25,65 +25,49 @@ library(openxlsx)
 #### acoustic traits retrieved by M. Busana from Jean Roché   ####
 #----------------------------------------------------------------#
 
-# traits of interest
-traits.keep1 <- c(
-  "duration_song",
-  "centroid_f",
+acoutr0 <-read.csv(
+    "data/maad_features_single_row_by_species_and_no_drum.csv",
+  )
+
+traits.keep <- c(
   "Ht_temporal_entropy",
-  "LFC_spectral_cover",
-  "MFC_spectral_cover",
-  "HFC_spectral_cover",
   "Hf_spectral_entropy",
   "number_of_freq_peaks",
-  "Hf_Havrda_spectral_entropy",
-  "Hf_Renyi_spectral_entropy",
-  "Hf_pairedShannon_spectral_entropy",
-  "Hf_gamma_spectral_entropy",
-  "Hf_GiniSimpson_spectral_entropy",
+  "number_of_freq_peaks_cqv",
   "peak_freq",
-  "peak_freq_amp_by_mean_amp",
-  "peak_f_roi",
-  "centroid_f_roi",
+  "peak_freq_cqv",
+  "ACTfract_mean_proportion_of_points_above_6dB_threshold",
+  "spectral_bandwidth_90",
+  "ugof_isochronous",
+  "npvi_ioi",
+  "npvi_ioi_cqv",
   "num_syllables_per_unit_time",
-  "syllable_duration_mean",
-  "syllable_duration_std",
-  "mean_gap_duration",
-  "gap_duration_std",
-  "sound_per_silence_ratio",
-  "sound_per_vocalization_ratio"
-)
-
-# the idea is to split traits into four types
-# and keep as many traits in each category
-
-traits.keep2 <- c(
   "duration_song",
-  "centroid_f",
-  "LFC_spectral_cover",
-  "MFC_spectral_cover",
-  "HFC_spectral_cover",
-  "Hf_spectral_entropy",
-  "number_of_freq_peaks",
-  "syllable_duration_mean",
-  "sound_per_vocalization_ratio"
+  "syllable_duration_median",
+  "ioi_duration_median",
+  "syllable_duration_median_cqv"
 )
-
-acoutr.ini <- read.csv("data/cleaned_maad_4_histo.csv") # initial trait data set, most variables there but not necessarily the best computation
-acoutr0 <- read.csv("data/maad_features_all.csv",sep=",") # full data set, includes double-checks for some species
 
 # duplicated species : average over traits of interest
 acoutr1 <-
-  aggregate(acoutr0[, traits.keep2],
+  aggregate(acoutr0[, traits.keep],
             by = list(acoutr0$birdlife_sci_name),
             FUN = "mean")
+
+# simpler acronyms
+
+colnames(acoutr1)[-1] <- c("Ht","Hf","nfp","nfp.cqv","pf",
+                           "pf.cqv","actfract","sp.bdw","ugof.iso","npvi.ioi","npvi.ioi.cqv",
+                           "n.syll","dur","syll.dur.med","ioi.dur.med","syll.dur.med.cqv")
 
 # species as rownames (for ade4)
 rownames(acoutr1) <- acoutr1$Group.1
 acoutr <- acoutr1[,-1]
 
 # gap filling : centroïd values for two NA on "duration songs" (species for which this trait is irrelevant / not computable)
-acoutr[is.na(acoutr$duration_song), "duration_song"] <-
-  mean(acoutr$duration_song, na.rm = T)
+
+acoutr <- acoutr %>%
+  mutate(across(where(is.numeric), ~ replace_na(., mean(., na.rm = TRUE))))
 
 # save trait data
 write.csv2(acoutr,"acoustic_traits_for_analysis.csv")
